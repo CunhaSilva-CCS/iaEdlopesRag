@@ -1,6 +1,8 @@
+import io
 import json
 import logging
 import os
+from contextlib import redirect_stderr
 from hashlib import sha256
 from pathlib import Path
 
@@ -108,7 +110,18 @@ def _carregar_ou_criar_indice(
     arquivos_com_falha = 0
     for arquivo in arquivos_pdf:
         try:
-            carregados = PyPDFLoader(str(arquivo)).load()
+            stderr_buffer = io.StringIO()
+            with redirect_stderr(stderr_buffer):
+                carregados = PyPDFLoader(str(arquivo)).load()
+
+            stderr_output = stderr_buffer.getvalue().strip()
+            if stderr_output:
+                _LOGGER.warning(
+                    "PDF com avisos estruturais (%s): %s",
+                    arquivo,
+                    stderr_output.splitlines()[0],
+                )
+
             for documento in carregados:
                 documento.metadata["source_file"] = arquivo.name
                 documento.metadata["source_group"] = arquivo.parent.name
