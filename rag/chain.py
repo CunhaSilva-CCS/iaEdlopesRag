@@ -2,10 +2,10 @@ import os
 import threading
 import time
 
-from openai import AuthenticationError
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from openai import AuthenticationError
 
 from .loader import criar_retriever
 
