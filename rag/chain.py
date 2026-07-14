@@ -16,6 +16,11 @@ def _inicializar() -> None:
         return
 
     api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Variavel de ambiente OPENAI_API_KEY nao configurada. "
+            "Defina a chave no servico do Render."
+        )
     modelo = ChatOpenAI(model="gpt-4o-mini", temperature=0.5, api_key=api_key)
 
     prompt = ChatPromptTemplate.from_messages(
@@ -40,8 +45,6 @@ def responder(pergunta: str) -> str:
     _inicializar()
     trechos = _retriever.invoke(pergunta)
     if not trechos:
-        return (
-            "Não encontrei essa informação nos documentos disponíveis da Edlopes Transportes."
-        )
+        return "Não encontrei essa informação nos documentos disponíveis da Edlopes Transportes."
     contexto = "\n\n".join(trecho.page_content for trecho in trechos)
     return _cadeia.invoke({"query": pergunta, "contexto": contexto})

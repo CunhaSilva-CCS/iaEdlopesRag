@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request
 
 from rag.chain import responder
 
@@ -23,5 +23,19 @@ def chat():
     if not pergunta:
         return jsonify({"erro": "A pergunta não pode ser vazia."}), 400
 
-    resposta = responder(pergunta)
-    return jsonify({"resposta": resposta})
+    try:
+        resposta = responder(pergunta)
+        return jsonify({"resposta": resposta})
+    except Exception as exc:
+        current_app.logger.exception("Falha ao processar /api/chat")
+        return (
+            jsonify(
+                {
+                    "erro": (
+                        "Nao foi possivel processar a consulta no momento. "
+                        f"Detalhe: {exc}"
+                    )
+                }
+            ),
+            503,
+        )

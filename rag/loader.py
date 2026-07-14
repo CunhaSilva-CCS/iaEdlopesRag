@@ -1,12 +1,13 @@
+import json
 import os
 from hashlib import sha256
-import json
 from pathlib import Path
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import SecretStr
 
 _RETRIEVAL_K = int(os.getenv("RAG_RETRIEVAL_K", "8"))
 _FETCH_K = int(os.getenv("RAG_FETCH_K", "24"))
@@ -19,6 +20,16 @@ _DOCS_DIR = _PROJECT_DIR / "documentos"
 _INDEX_DIR = _PROJECT_DIR / ".faiss_index"
 _INDEX_NAME = "edlopes_docs"
 _MANIFEST_PATH = _INDEX_DIR / "manifest.json"
+
+
+def _obter_api_key_openai() -> SecretStr:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Variavel de ambiente OPENAI_API_KEY nao configurada. "
+            "Defina a chave no ambiente do Render."
+        )
+    return SecretStr(api_key)
 
 
 def _listar_arquivos_pdf(base_dir: Path) -> list[Path]:
@@ -83,19 +94,33 @@ def _carregar_ou_criar_indice(
             allow_dangerous_deserialization=True,
         )
 
-    documentos = []
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=_CHUNK_SIZE, chunk_overlap=_CHUNK_OVERLAP
+    )
+
+    indice = None
+    total_pedacos = 0
     for arquivo in arquivos_pdf:
         carregados = PyPDFLoader(str(arquivo)).load()
         for documento in carregados:
             documento.metadata["source_file"] = arquivo.name
             documento.metadata["source_group"] = arquivo.parent.name
-            documento.metadata["source_relpath"] = str(arquivo.relative_to(_PROJECT_DIR))
-        documentos.extend(carregados)
+            documento.metadata["source_relpath"] = str(
+                arquivo.relative_to(_PROJECT_DIR)
+            )
 
-    pedacos = RecursiveCharacterTextSplitter(
-        chunk_size=_CHUNK_SIZE, chunk_overlap=_CHUNK_OVERLAP
-    ).split_documents(documentos)
-    indice = FAISS.from_documents(pedacos, embeddings)
+        pedacos = splitter.split_documents(carregados)
+        total_pedacos += len(pedacos)
+
+        if indice is None:
+            indice = FAISS.from_documents(pedacos, embeddings)
+        else:
+            indice.add_documents(pedacos)
+
+    if indice is None:
+        raise RuntimeError(
+            "Nenhum trecho foi gerado a partir dos PDFs disponíveis para indexação."
+        )
 
     _INDEX_DIR.mkdir(parents=True, exist_ok=True)
     indice.save_local(folder_path=str(_INDEX_DIR), index_name=_INDEX_NAME)
@@ -104,6 +129,7 @@ def _carregar_ou_criar_indice(
             {
                 "snapshot_hash": _assinatura_snapshot(snapshot),
                 "document_count": len(arquivos_pdf),
+                "chunk_count": total_pedacos,
                 "chunk_size": _CHUNK_SIZE,
                 "chunk_overlap": _CHUNK_OVERLAP,
             },
@@ -116,8 +142,7 @@ def _carregar_ou_criar_indice(
 
 
 def criar_retriever():
-    api_key = os.getenv("OPENAI_API_KEY")
-    embeddings = OpenAIEmbeddings(api_key=api_key)
+    embeddings = OpenAIEmbeddings(api_key=_obter_api_key_openai())
     arquivos_pdf = _listar_arquivos_pdf(_DOCS_DIR)
     indice = _carregar_ou_criar_indice(embeddings, arquivos_pdf)
 
