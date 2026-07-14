@@ -5,7 +5,14 @@ const textarea = document.getElementById("pergunta");
 const sendBtn = document.getElementById("send-btn");
 const btnClear = document.getElementById("btn-clear");
 const suggestions = document.getElementById("suggestions");
+const docToggle = document.getElementById("doc-toggle");
+const docPanel = document.getElementById("doc-panel");
+const docList = document.getElementById("doc-list");
+const docSelectAll = document.getElementById("doc-select-all");
+const docClear = document.getElementById("doc-clear");
 let preparingHits = 0;
+let documentosDisponiveis = [];
+const documentosSelecionados = new Set();
 
 if (window.marked && typeof window.marked.setOptions === "function") {
   window.marked.setOptions({ breaks: true });
@@ -17,6 +24,62 @@ function submitForm() {
     return;
   }
   form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+}
+
+function atualizarResumoDocumentos() {
+  if (!docToggle) return;
+
+  const total = documentosDisponiveis.length;
+  const selecionados = documentosSelecionados.size;
+  if (!total || selecionados === 0 || selecionados === total) {
+    docToggle.textContent = "Documentos: Todos";
+    return;
+  }
+  docToggle.textContent = `Documentos: ${selecionados} selecionado(s)`;
+}
+
+function renderizarListaDocumentos() {
+  if (!docList) return;
+  docList.innerHTML = "";
+
+  documentosDisponiveis.forEach((doc) => {
+    const id = `doc-${btoa(unescape(encodeURIComponent(doc.id))).replace(/=/g, "")}`;
+    const row = document.createElement("label");
+    row.className = "doc-option";
+    row.setAttribute("for", id);
+    row.innerHTML = `
+      <input id="${id}" type="checkbox" ${
+        documentosSelecionados.has(doc.id) ? "checked" : ""
+      } />
+      <span>${escapeHtml(doc.grupo)} · ${escapeHtml(doc.nome)}</span>
+    `;
+
+    const checkbox = row.querySelector("input");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        documentosSelecionados.add(doc.id);
+      } else {
+        documentosSelecionados.delete(doc.id);
+      }
+      atualizarResumoDocumentos();
+    });
+
+    docList.appendChild(row);
+  });
+
+  atualizarResumoDocumentos();
+}
+
+async function carregarDocumentos() {
+  if (!docToggle || !docList) return;
+  try {
+    const res = await fetch("/api/documentos");
+    const data = await res.json();
+    documentosDisponiveis = Array.isArray(data.documentos) ? data.documentos : [];
+    renderizarListaDocumentos();
+  } catch (error) {
+    console.error("Falha ao carregar documentos:", error);
+  }
 }
 
 // ── Auto-resize textarea ──────────────────────────────
@@ -54,6 +117,27 @@ btnClear.addEventListener("click", () => {
   suggestions.style.display = "";
   textarea.focus();
 });
+
+if (docToggle && docPanel) {
+  docToggle.addEventListener("click", () => {
+    docPanel.hidden = !docPanel.hidden;
+  });
+}
+
+if (docSelectAll) {
+  docSelectAll.addEventListener("click", () => {
+    documentosSelecionados.clear();
+    documentosDisponiveis.forEach((doc) => documentosSelecionados.add(doc.id));
+    renderizarListaDocumentos();
+  });
+}
+
+if (docClear) {
+  docClear.addEventListener("click", () => {
+    documentosSelecionados.clear();
+    renderizarListaDocumentos();
+  });
+}
 
 // ── Helpers ───────────────────────────────────────────
 function scrollToBottom() {
@@ -137,7 +221,10 @@ form.addEventListener("submit", async (e) => {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pergunta }),
+      body: JSON.stringify({
+        pergunta,
+        documentos: Array.from(documentosSelecionados),
+      }),
     });
 
     const rawBody = await res.text();
@@ -184,3 +271,5 @@ form.addEventListener("submit", async (e) => {
     textarea.focus();
   }
 });
+
+carregarDocumentos();

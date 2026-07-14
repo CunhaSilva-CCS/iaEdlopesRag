@@ -127,7 +127,29 @@ def preaquecer_base() -> None:
     _inicializar()
 
 
-def responder(pergunta: str) -> str:
+def _normalizar_documentos(documentos: list[str] | None) -> set[str]:
+    if not documentos:
+        return set()
+    return {d.strip().lower() for d in documentos if isinstance(d, str) and d.strip()}
+
+
+def _filtrar_trechos_por_documentos(trechos, documentos: list[str] | None):
+    filtro = _normalizar_documentos(documentos)
+    if not filtro:
+        return trechos
+
+    filtrados = []
+    for trecho in trechos:
+        metadata = trecho.metadata or {}
+        relpath = str(metadata.get("source_relpath", "")).lower()
+        nome = str(metadata.get("source_file", "")).lower()
+        grupo = str(metadata.get("source_group", "")).lower()
+        if relpath in filtro or nome in filtro or grupo in filtro:
+            filtrados.append(trecho)
+    return filtrados
+
+
+def responder(pergunta: str, documentos: list[str] | None = None) -> str:
     _inicializar()
 
     agora = time.monotonic()
@@ -148,7 +170,7 @@ def responder(pergunta: str) -> str:
         tempo_aguardo = int(agora - started_at) if started_at else 0
 
         if tempo_aguardo >= _PREPARE_FALLBACK_SECONDS:
-            contexto_rapido = buscar_contexto_rapido(pergunta)
+            contexto_rapido = buscar_contexto_rapido(pergunta, documentos=documentos)
             if contexto_rapido:
                 blocos = []
                 for item in contexto_rapido:
@@ -173,7 +195,8 @@ def responder(pergunta: str) -> str:
         )
 
     trechos = retriever.invoke(pergunta)
+    trechos = _filtrar_trechos_por_documentos(trechos, documentos)
     if not trechos:
-        return "Não encontrei essa informação nos documentos disponíveis da Edlopes Transportes."
+        return "Nao encontrei essa informacao nos documentos selecionados da Edlopes Transportes."
     contexto = "\n\n".join(trecho.page_content for trecho in trechos)
     return cadeia.invoke({"query": pergunta, "contexto": contexto})

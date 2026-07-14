@@ -89,6 +89,29 @@ def _tokens_consulta(texto: str) -> list[str]:
     return [t for t in tokens if len(t) >= 2]
 
 
+def _normalizar_selecao_documentos(documentos: list[str] | None) -> set[str]:
+    if not documentos:
+        return set()
+    return {d.strip().lower() for d in documentos if isinstance(d, str) and d.strip()}
+
+
+def _filtrar_arquivos_por_documentos(
+    arquivos: list[Path], documentos: list[str] | None
+) -> list[Path]:
+    filtro = _normalizar_selecao_documentos(documentos)
+    if not filtro:
+        return arquivos
+
+    filtrados = []
+    for arquivo in arquivos:
+        relpath = str(arquivo.relative_to(_PROJECT_DIR)).lower()
+        nome = arquivo.name.lower()
+        grupo = arquivo.parent.name.lower()
+        if relpath in filtro or nome in filtro or grupo in filtro:
+            filtrados.append(arquivo)
+    return filtrados
+
+
 def _pontuar_arquivo(arquivo: Path, tokens: list[str]) -> int:
     nome = arquivo.name.lower()
     return sum(1 for token in tokens if token in nome)
@@ -106,9 +129,17 @@ def _extrair_trecho_rapido(arquivo: Path, max_chars: int = 1200) -> str:
 
 
 def buscar_contexto_rapido(
-    pergunta: str, max_docs: int = 3, max_chars_por_doc: int = 1200
+    pergunta: str,
+    documentos: list[str] | None = None,
+    max_docs: int = 3,
+    max_chars_por_doc: int = 1200,
 ) -> list[dict[str, str]]:
-    arquivos = _listar_arquivos_pdf(_DOCS_DIR)
+    arquivos = _filtrar_arquivos_por_documentos(
+        _listar_arquivos_pdf(_DOCS_DIR), documentos
+    )
+    if not arquivos:
+        return []
+
     tokens = _tokens_consulta(pergunta)
 
     ranqueados = sorted(
@@ -132,6 +163,20 @@ def buscar_contexto_rapido(
             break
 
     return contexto
+
+
+def listar_documentos_disponiveis() -> list[dict[str, str]]:
+    arquivos = _listar_arquivos_pdf(_DOCS_DIR)
+    documentos = []
+    for arquivo in arquivos:
+        documentos.append(
+            {
+                "id": str(arquivo.relative_to(_PROJECT_DIR)),
+                "nome": arquivo.name,
+                "grupo": arquivo.parent.name,
+            }
+        )
+    return documentos
 
 
 def _obter_api_key_openai() -> SecretStr:

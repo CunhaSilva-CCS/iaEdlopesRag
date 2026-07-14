@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, jsonify, render_template, request
 
 from rag.chain import responder
+from rag.loader import listar_documentos_disponiveis
 
 chat_bp = Blueprint("chat", __name__)
 
@@ -15,16 +16,29 @@ def healthz():
     return jsonify({"status": "ok"})
 
 
+@chat_bp.get("/api/documentos")
+def documentos():
+    try:
+        return jsonify({"documentos": listar_documentos_disponiveis()})
+    except Exception as exc:
+        current_app.logger.exception("Falha ao listar documentos")
+        return jsonify({"erro": f"Falha ao listar documentos: {exc}"}), 500
+
+
 @chat_bp.post("/api/chat")
 def chat():
     data = request.get_json(force=True, silent=True) or {}
     pergunta = (data.get("pergunta") or "").strip()
+    documentos_raw = data.get("documentos") or []
+    documentos = [
+        doc.strip() for doc in documentos_raw if isinstance(doc, str) and doc.strip()
+    ]
 
     if not pergunta:
         return jsonify({"erro": "A pergunta não pode ser vazia."}), 400
 
     try:
-        resposta = responder(pergunta)
+        resposta = responder(pergunta, documentos=documentos)
         return jsonify({"resposta": resposta})
     except Exception as exc:
         erro_texto = str(exc)
