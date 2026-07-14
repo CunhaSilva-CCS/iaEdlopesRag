@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import os
+import re
 import time
 from contextlib import redirect_stderr
 from hashlib import sha256
@@ -81,6 +82,56 @@ def _carregar_paginas_pdf(arquivo: Path):
         _LOGGER.warning("Fallback PyMuPDF indisponivel para %s: %s", arquivo, exc)
 
     return carregados
+
+
+def _tokens_consulta(texto: str) -> list[str]:
+    tokens = re.findall(r"[a-z0-9]+", texto.lower())
+    return [t for t in tokens if len(t) >= 2]
+
+
+def _pontuar_arquivo(arquivo: Path, tokens: list[str]) -> int:
+    nome = arquivo.name.lower()
+    return sum(1 for token in tokens if token in nome)
+
+
+def _extrair_trecho_rapido(arquivo: Path, max_chars: int = 1200) -> str:
+    paginas = _carregar_paginas_pdf(arquivo)
+    conteudos = [
+        p.page_content.strip() for p in paginas if (p.page_content or "").strip()
+    ]
+    if not conteudos:
+        return ""
+    texto = "\n\n".join(conteudos[:2])
+    return texto[:max_chars].strip()
+
+
+def buscar_contexto_rapido(
+    pergunta: str, max_docs: int = 3, max_chars_por_doc: int = 1200
+) -> list[dict[str, str]]:
+    arquivos = _listar_arquivos_pdf(_DOCS_DIR)
+    tokens = _tokens_consulta(pergunta)
+
+    ranqueados = sorted(
+        arquivos,
+        key=lambda a: (_pontuar_arquivo(a, tokens), a.name.lower()),
+        reverse=True,
+    )
+
+    contexto: list[dict[str, str]] = []
+    for arquivo in ranqueados[: max_docs * 2]:
+        trecho = _extrair_trecho_rapido(arquivo, max_chars=max_chars_por_doc)
+        if not trecho:
+            continue
+        contexto.append(
+            {
+                "arquivo": str(arquivo.relative_to(_PROJECT_DIR)),
+                "trecho": trecho,
+            }
+        )
+        if len(contexto) >= max_docs:
+            break
+
+    return contexto
 
 
 def _obter_api_key_openai() -> SecretStr:

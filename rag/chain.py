@@ -7,7 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from openai import AuthenticationError
 
-from .loader import criar_retriever
+from .loader import buscar_contexto_rapido, criar_retriever
 
 _retriever = None
 _cadeia = None
@@ -18,6 +18,7 @@ _init_started_at = 0.0
 _init_error_at = 0.0
 _INIT_MAX_SECONDS = int(os.getenv("RAG_INIT_MAX_SECONDS", "240"))
 _INIT_RETRY_SECONDS = int(os.getenv("RAG_INIT_RETRY_SECONDS", "45"))
+_PREPARE_FALLBACK_SECONDS = int(os.getenv("RAG_PREPARE_FALLBACK_SECONDS", "45"))
 
 
 def _normalizar_api_key(valor: str | None) -> str:
@@ -145,6 +146,20 @@ def responder(pergunta: str) -> str:
             )
 
         tempo_aguardo = int(agora - started_at) if started_at else 0
+
+        if tempo_aguardo >= _PREPARE_FALLBACK_SECONDS:
+            contexto_rapido = buscar_contexto_rapido(pergunta)
+            if contexto_rapido:
+                blocos = []
+                for item in contexto_rapido:
+                    blocos.append(
+                        f"Fonte: {item['arquivo']}\nTrecho preliminar:\n{item['trecho']}"
+                    )
+                return (
+                    "A base vetorial ainda esta em preparacao, mas localizei trechos preliminares nos PDFs:\n\n"
+                    + "\n\n".join(blocos)
+                )
+
         raise RuntimeError(
             "Base de conhecimento em preparacao. "
             "A indexacao dos PDFs esta em andamento, tente novamente em instantes. "
