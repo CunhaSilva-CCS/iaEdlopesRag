@@ -10,4 +10,8 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: RAG_INITIAL_INDEX_MAX_FILES
-        value: "25"
+        value: "8"
+      - key: RAG_INIT_MAX_SECONDS
+        value: "240"
+      - key: RAG_INIT_RETRY_SECONDS
+        value: "45"
