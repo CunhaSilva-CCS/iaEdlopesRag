@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import os
+import time
 from contextlib import redirect_stderr
 from hashlib import sha256
 from pathlib import Path
@@ -15,14 +16,18 @@ from pydantic import SecretStr
 _RETRIEVAL_K = int(os.getenv("RAG_RETRIEVAL_K", "8"))
 _FETCH_K = int(os.getenv("RAG_FETCH_K", "24"))
 _SEARCH_TYPE = os.getenv("RAG_SEARCH_TYPE", "mmr")
-_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1000"))
-_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "100"))
 _EMBEDDING_BATCH_SIZE = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "64"))
 _IS_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_HOSTNAME"))
 _DEFAULT_INITIAL_LIMIT = "8" if _IS_RENDER else "0"
 _INITIAL_INDEX_MAX_FILES = int(
     os.getenv("RAG_INITIAL_INDEX_MAX_FILES", _DEFAULT_INITIAL_LIMIT)
 )
+_DEFAULT_BOOTSTRAP_MAX_SECONDS = "90" if _IS_RENDER else "0"
+_BOOTSTRAP_MAX_SECONDS = int(
+    os.getenv("RAG_BOOTSTRAP_MAX_SECONDS", _DEFAULT_BOOTSTRAP_MAX_SECONDS)
+)
+_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1800" if _IS_RENDER else "1000"))
+_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "80" if _IS_RENDER else "100"))
 
 _PROJECT_DIR = Path(__file__).resolve().parent.parent
 _DOCS_DIR = _PROJECT_DIR / "documentos"
@@ -178,7 +183,20 @@ def _carregar_ou_criar_indice(
     total_pedacos = 0
     arquivos_processados = 0
     arquivos_com_falha = 0
+    inicio_bootstrap = time.monotonic()
     for arquivo in arquivos_pdf:
+        if (
+            _BOOTSTRAP_MAX_SECONDS > 0
+            and arquivos_processados > 0
+            and (time.monotonic() - inicio_bootstrap) >= _BOOTSTRAP_MAX_SECONDS
+        ):
+            _LOGGER.warning(
+                "Orcamento de bootstrap atingido (%ss). Finalizando indice parcial com %s arquivos.",
+                _BOOTSTRAP_MAX_SECONDS,
+                arquivos_processados,
+            )
+            break
+
         try:
             carregados = _carregar_paginas_pdf(arquivo)
 
@@ -221,6 +239,7 @@ def _carregar_ou_criar_indice(
                 "snapshot_hash": _assinatura_snapshot(snapshot),
                 "document_count": len(arquivos_pdf),
                 "initial_file_limit": _INITIAL_INDEX_MAX_FILES,
+                "bootstrap_max_seconds": _BOOTSTRAP_MAX_SECONDS,
                 "processed_document_count": arquivos_processados,
                 "failed_document_count": arquivos_com_falha,
                 "chunk_count": total_pedacos,
