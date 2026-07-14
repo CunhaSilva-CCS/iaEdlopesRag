@@ -59,6 +59,11 @@ def _inicializar() -> None:
                     "Variavel de ambiente OPENAI_API_KEY nao configurada. "
                     "Defina a chave no servico do Render."
                 )
+            if not api_key.startswith("sk-"):
+                raise RuntimeError(
+                    "OPENAI_API_KEY com formato invalido. "
+                    "A chave deve iniciar com 'sk-'."
+                )
 
             modelo = ChatOpenAI(model="gpt-4o-mini", temperature=0.5, api_key=api_key)
 

@@ -67,6 +67,10 @@ def _obter_api_key_openai() -> SecretStr:
             "Variavel de ambiente OPENAI_API_KEY nao configurada. "
             "Defina a chave no ambiente do Render."
         )
+    if not api_key.startswith("sk-"):
+        raise RuntimeError(
+            "OPENAI_API_KEY com formato invalido. A chave deve iniciar com 'sk-'."
+        )
     return SecretStr(api_key)
 
 
