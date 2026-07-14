@@ -27,6 +27,20 @@ def chat():
         resposta = responder(pergunta)
         return jsonify({"resposta": resposta})
     except Exception as exc:
+        if "Base de conhecimento em preparacao" in str(exc):
+            return (
+                jsonify(
+                    {
+                        "status": "preparando",
+                        "erro": (
+                            "A base documental esta sendo preparada agora. "
+                            "Tente novamente em alguns instantes."
+                        ),
+                    }
+                ),
+                202,
+            )
+
         current_app.logger.exception("Falha ao processar /api/chat")
         return (
             jsonify(

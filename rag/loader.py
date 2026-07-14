@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from hashlib import sha256
 from pathlib import Path
@@ -20,6 +21,9 @@ _DOCS_DIR = _PROJECT_DIR / "documentos"
 _INDEX_DIR = _PROJECT_DIR / ".faiss_index"
 _INDEX_NAME = "edlopes_docs"
 _MANIFEST_PATH = _INDEX_DIR / "manifest.json"
+
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+_LOGGER = logging.getLogger(__name__)
 
 
 def _obter_api_key_openai() -> SecretStr:
@@ -100,26 +104,40 @@ def _carregar_ou_criar_indice(
 
     indice = None
     total_pedacos = 0
+    arquivos_processados = 0
+    arquivos_com_falha = 0
     for arquivo in arquivos_pdf:
-        carregados = PyPDFLoader(str(arquivo)).load()
-        for documento in carregados:
-            documento.metadata["source_file"] = arquivo.name
-            documento.metadata["source_group"] = arquivo.parent.name
-            documento.metadata["source_relpath"] = str(
-                arquivo.relative_to(_PROJECT_DIR)
-            )
+        try:
+            carregados = PyPDFLoader(str(arquivo)).load()
+            for documento in carregados:
+                documento.metadata["source_file"] = arquivo.name
+                documento.metadata["source_group"] = arquivo.parent.name
+                documento.metadata["source_relpath"] = str(
+                    arquivo.relative_to(_PROJECT_DIR)
+                )
 
-        pedacos = splitter.split_documents(carregados)
-        total_pedacos += len(pedacos)
+            pedacos = splitter.split_documents(carregados)
+            if not pedacos:
+                arquivos_com_falha += 1
+                _LOGGER.warning("PDF sem conteudo aproveitavel: %s", arquivo)
+                continue
 
-        if indice is None:
-            indice = FAISS.from_documents(pedacos, embeddings)
-        else:
-            indice.add_documents(pedacos)
+            total_pedacos += len(pedacos)
+            arquivos_processados += 1
+
+            if indice is None:
+                indice = FAISS.from_documents(pedacos, embeddings)
+            else:
+                indice.add_documents(pedacos)
+        except Exception as exc:
+            arquivos_com_falha += 1
+            _LOGGER.warning("Falha ao processar PDF %s: %s", arquivo, exc)
+            continue
 
     if indice is None:
         raise RuntimeError(
-            "Nenhum trecho foi gerado a partir dos PDFs disponíveis para indexação."
+            "Nenhum trecho foi gerado a partir dos PDFs disponiveis para indexacao. "
+            "Verifique se os arquivos PDF estao validos e legiveis."
         )
 
     _INDEX_DIR.mkdir(parents=True, exist_ok=True)
@@ -129,6 +147,8 @@ def _carregar_ou_criar_indice(
             {
                 "snapshot_hash": _assinatura_snapshot(snapshot),
                 "document_count": len(arquivos_pdf),
+                "processed_document_count": arquivos_processados,
+                "failed_document_count": arquivos_com_falha,
                 "chunk_count": total_pedacos,
                 "chunk_size": _CHUNK_SIZE,
                 "chunk_overlap": _CHUNK_OVERLAP,

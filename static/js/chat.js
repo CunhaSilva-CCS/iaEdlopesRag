@@ -73,7 +73,9 @@ function addMessage(content, role) {
 
   const avatarLabel = role === "user" ? "Você" : "ED";
   const bubbleHtml =
-    role === "ai" ? renderAssistantMessage(content) : `<p>${escapeHtml(content)}</p>`;
+    role === "ai"
+      ? renderAssistantMessage(content)
+      : `<p>${escapeHtml(content)}</p>`;
 
   wrap.innerHTML = `
     <div class="avatar">${avatarLabel}</div>
@@ -147,6 +149,14 @@ form.addEventListener("submit", async (e) => {
     hideTyping();
 
     if (res.ok) {
+      if (res.status === 202 || data.status === "preparando") {
+        addMessage(
+          data.erro ||
+            "A base esta sendo preparada. Tente novamente em instantes.",
+          "ai",
+        );
+        return;
+      }
       addMessage(data.resposta || "Não foi possível gerar a resposta.", "ai");
     } else {
       addMessage(`⚠️ ${data.erro || "Erro ao obter resposta."}`, "ai");
