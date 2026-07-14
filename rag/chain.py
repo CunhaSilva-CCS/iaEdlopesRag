@@ -96,6 +96,10 @@ def _inicializar() -> None:
     threading.Thread(target=_job, daemon=True).start()
 
 
+def preaquecer_base() -> None:
+    _inicializar()
+
+
 def responder(pergunta: str) -> str:
     _inicializar()
 

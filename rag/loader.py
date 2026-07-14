@@ -17,6 +17,7 @@ _FETCH_K = int(os.getenv("RAG_FETCH_K", "24"))
 _SEARCH_TYPE = os.getenv("RAG_SEARCH_TYPE", "mmr")
 _CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1000"))
 _CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "100"))
+_EMBEDDING_BATCH_SIZE = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "64"))
 
 _PROJECT_DIR = Path(__file__).resolve().parent.parent
 _DOCS_DIR = _PROJECT_DIR / "documentos"
@@ -26,6 +27,37 @@ _MANIFEST_PATH = _INDEX_DIR / "manifest.json"
 
 logging.getLogger("pypdf").setLevel(logging.ERROR)
 _LOGGER = logging.getLogger(__name__)
+
+
+def _carregar_paginas_pdf(arquivo: Path):
+    # Primeiro tenta PyPDF (mais leve). Se vier vazio, tenta fallback com PyMuPDF.
+    stderr_buffer = io.StringIO()
+    with redirect_stderr(stderr_buffer):
+        carregados = PyPDFLoader(str(arquivo)).load()
+
+    stderr_output = stderr_buffer.getvalue().strip()
+    if stderr_output:
+        _LOGGER.warning(
+            "PDF com avisos estruturais (%s): %s",
+            arquivo,
+            stderr_output.splitlines()[0],
+        )
+
+    tem_texto = any((doc.page_content or "").strip() for doc in carregados)
+    if tem_texto:
+        return carregados
+
+    try:
+        from langchain_community.document_loaders import PyMuPDFLoader
+
+        fallback = PyMuPDFLoader(str(arquivo)).load()
+        if any((doc.page_content or "").strip() for doc in fallback):
+            _LOGGER.info("Fallback PyMuPDF aplicado com sucesso para %s", arquivo)
+            return fallback
+    except Exception as exc:
+        _LOGGER.warning("Fallback PyMuPDF indisponivel para %s: %s", arquivo, exc)
+
+    return carregados
 
 
 def _obter_api_key_openai() -> SecretStr:
@@ -110,17 +142,7 @@ def _carregar_ou_criar_indice(
     arquivos_com_falha = 0
     for arquivo in arquivos_pdf:
         try:
-            stderr_buffer = io.StringIO()
-            with redirect_stderr(stderr_buffer):
-                carregados = PyPDFLoader(str(arquivo)).load()
-
-            stderr_output = stderr_buffer.getvalue().strip()
-            if stderr_output:
-                _LOGGER.warning(
-                    "PDF com avisos estruturais (%s): %s",
-                    arquivo,
-                    stderr_output.splitlines()[0],
-                )
+            carregados = _carregar_paginas_pdf(arquivo)
 
             for documento in carregados:
                 documento.metadata["source_file"] = arquivo.name
@@ -175,7 +197,10 @@ def _carregar_ou_criar_indice(
 
 
 def criar_retriever():
-    embeddings = OpenAIEmbeddings(api_key=_obter_api_key_openai())
+    embeddings = OpenAIEmbeddings(
+        api_key=_obter_api_key_openai(),
+        chunk_size=_EMBEDDING_BATCH_SIZE,
+    )
     arquivos_pdf = _listar_arquivos_pdf(_DOCS_DIR)
     indice = _carregar_ou_criar_indice(embeddings, arquivos_pdf)
 
