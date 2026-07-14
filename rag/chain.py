@@ -160,6 +160,12 @@ def responder(pergunta: str) -> str:
                     + "\n\n".join(blocos)
                 )
 
+            return (
+                "A base vetorial ainda esta em preparacao e os primeiros PDFs analisados "
+                "nao trouxeram trechos textuais aproveitaveis para esta pergunta. "
+                "Tente novamente em 1-2 minutos."
+            )
+
         raise RuntimeError(
             "Base de conhecimento em preparacao. "
             "A indexacao dos PDFs esta em andamento, tente novamente em instantes. "
