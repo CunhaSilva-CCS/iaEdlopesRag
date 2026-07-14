@@ -75,7 +75,9 @@ async function carregarDocumentos() {
   try {
     const res = await fetch("/api/documentos");
     const data = await res.json();
-    documentosDisponiveis = Array.isArray(data.documentos) ? data.documentos : [];
+    documentosDisponiveis = Array.isArray(data.documentos)
+      ? data.documentos
+      : [];
     renderizarListaDocumentos();
   } catch (error) {
     console.error("Falha ao carregar documentos:", error);
