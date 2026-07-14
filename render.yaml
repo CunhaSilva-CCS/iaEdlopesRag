@@ -9,3 +9,5 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
+      - key: RAG_INITIAL_INDEX_MAX_FILES
+        value: "25"

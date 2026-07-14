@@ -18,6 +18,10 @@ _SEARCH_TYPE = os.getenv("RAG_SEARCH_TYPE", "mmr")
 _CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1000"))
 _CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "100"))
 _EMBEDDING_BATCH_SIZE = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "64"))
+_DEFAULT_INITIAL_LIMIT = "25" if os.getenv("RENDER") else "0"
+_INITIAL_INDEX_MAX_FILES = int(
+    os.getenv("RAG_INITIAL_INDEX_MAX_FILES", _DEFAULT_INITIAL_LIMIT)
+)
 
 _PROJECT_DIR = Path(__file__).resolve().parent.parent
 _DOCS_DIR = _PROJECT_DIR / "documentos"
@@ -137,9 +141,25 @@ def _manifest_atualizado(snapshot: list[dict[str, str | int]]) -> bool:
 def _carregar_ou_criar_indice(
     embeddings: OpenAIEmbeddings, arquivos_pdf: list[Path]
 ) -> FAISS:
-    snapshot = _snapshot_arquivos_pdf(arquivos_pdf)
     index_file = _INDEX_DIR / f"{_INDEX_NAME}.faiss"
     pkl_file = _INDEX_DIR / f"{_INDEX_NAME}.pkl"
+
+    # No primeiro boot em ambientes restritos, indexa um subconjunto para reduzir tempo ate ficar operacional.
+    if (
+        not _MANIFEST_PATH.exists()
+        and not index_file.exists()
+        and not pkl_file.exists()
+        and _INITIAL_INDEX_MAX_FILES > 0
+        and len(arquivos_pdf) > _INITIAL_INDEX_MAX_FILES
+    ):
+        _LOGGER.warning(
+            "Modo rapido ativo: indexando %s de %s PDFs no bootstrap inicial.",
+            _INITIAL_INDEX_MAX_FILES,
+            len(arquivos_pdf),
+        )
+        arquivos_pdf = arquivos_pdf[:_INITIAL_INDEX_MAX_FILES]
+
+    snapshot = _snapshot_arquivos_pdf(arquivos_pdf)
 
     if _manifest_atualizado(snapshot) and index_file.exists() and pkl_file.exists():
         return FAISS.load_local(
@@ -199,6 +219,7 @@ def _carregar_ou_criar_indice(
             {
                 "snapshot_hash": _assinatura_snapshot(snapshot),
                 "document_count": len(arquivos_pdf),
+                "initial_file_limit": _INITIAL_INDEX_MAX_FILES,
                 "processed_document_count": arquivos_processados,
                 "failed_document_count": arquivos_com_falha,
                 "chunk_count": total_pedacos,
