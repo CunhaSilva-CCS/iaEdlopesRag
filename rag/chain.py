@@ -16,8 +16,8 @@ _init_state = "idle"
 _init_error = ""
 _init_started_at = 0.0
 _init_error_at = 0.0
-_INIT_MAX_SECONDS = int(os.getenv("RAG_INIT_MAX_SECONDS", "900"))
-_INIT_RETRY_SECONDS = int(os.getenv("RAG_INIT_RETRY_SECONDS", "120"))
+_INIT_MAX_SECONDS = int(os.getenv("RAG_INIT_MAX_SECONDS", "240"))
+_INIT_RETRY_SECONDS = int(os.getenv("RAG_INIT_RETRY_SECONDS", "45"))
 
 
 def _normalizar_api_key(valor: str | None) -> str:

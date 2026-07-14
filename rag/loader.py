@@ -18,7 +18,8 @@ _SEARCH_TYPE = os.getenv("RAG_SEARCH_TYPE", "mmr")
 _CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1000"))
 _CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "100"))
 _EMBEDDING_BATCH_SIZE = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "64"))
-_DEFAULT_INITIAL_LIMIT = "8" if os.getenv("RENDER") else "0"
+_IS_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_HOSTNAME"))
+_DEFAULT_INITIAL_LIMIT = "8" if _IS_RENDER else "0"
 _INITIAL_INDEX_MAX_FILES = int(
     os.getenv("RAG_INITIAL_INDEX_MAX_FILES", _DEFAULT_INITIAL_LIMIT)
 )
