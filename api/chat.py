@@ -10,6 +10,11 @@ def index():
     return render_template("index.html")
 
 
+@chat_bp.get("/healthz")
+def healthz():
+    return jsonify({"status": "ok"})
+
+
 @chat_bp.post("/api/chat")
 def chat():
     data = request.get_json(force=True, silent=True) or {}

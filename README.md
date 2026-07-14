@@ -5,6 +5,7 @@ Aplicação Flask com RAG para consulta de documentos internos em PDF.
 ## Rodar localmente
 
 1. Crie e ative um ambiente virtual.
+   > Para manter compatibilidade com o deploy no Render, use Python 3.11.
 2. Instale as dependências:
    ```bash
    pip install -r requirements.txt
@@ -48,4 +49,5 @@ Este projeto já está preparado para Render com:
 
 - O `.env` não deve ser enviado ao repositório.
 - O índice vetorial (`.faiss_index/`) é cache local e é recriado quando necessário.
+- O arquivo `.python-version` fixa o deploy em Python 3.11, que e compativel com a versao usada de `faiss-cpu` no Render.
 # iaEdlopesRag
