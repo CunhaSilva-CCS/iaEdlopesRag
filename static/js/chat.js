@@ -5,6 +5,7 @@ const textarea = document.getElementById("pergunta");
 const sendBtn = document.getElementById("send-btn");
 const btnClear = document.getElementById("btn-clear");
 const suggestions = document.getElementById("suggestions");
+let preparingHits = 0;
 
 if (window.marked && typeof window.marked.setOptions === "function") {
   window.marked.setOptions({ breaks: true });
@@ -150,6 +151,14 @@ form.addEventListener("submit", async (e) => {
 
     if (res.ok) {
       if (res.status === 202 || data.status === "preparando") {
+        preparingHits += 1;
+        if (preparingHits >= 5) {
+          addMessage(
+            "A base ainda esta em preparacao ha algum tempo. Tente novamente em 1-2 minutos. Se persistir, reinicie o servico no Render.",
+            "ai",
+          );
+          return;
+        }
         addMessage(
           data.erro ||
             "A base esta sendo preparada. Tente novamente em instantes.",
@@ -157,8 +166,10 @@ form.addEventListener("submit", async (e) => {
         );
         return;
       }
+      preparingHits = 0;
       addMessage(data.resposta || "Não foi possível gerar a resposta.", "ai");
     } else {
+      preparingHits = 0;
       addMessage(`⚠️ ${data.erro || "Erro ao obter resposta."}`, "ai");
     }
   } catch (error) {

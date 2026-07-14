@@ -27,19 +27,21 @@ def chat():
         resposta = responder(pergunta)
         return jsonify({"resposta": resposta})
     except Exception as exc:
-        if "Base de conhecimento em preparacao" in str(exc):
+        erro_texto = str(exc)
+
+        if "Base de conhecimento em preparacao" in erro_texto:
             return (
                 jsonify(
                     {
                         "status": "preparando",
-                        "erro": (
-                            "A base documental esta sendo preparada agora. "
-                            "Tente novamente em alguns instantes."
-                        ),
+                        "erro": erro_texto,
                     }
                 ),
                 202,
             )
+
+        if "Falha na inicializacao da base de conhecimento" in erro_texto:
+            return jsonify({"status": "erro_inicializacao", "erro": erro_texto}), 503
 
         current_app.logger.exception("Falha ao processar /api/chat")
         return (
