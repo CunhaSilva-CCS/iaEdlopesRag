@@ -2,6 +2,7 @@ import os
 import threading
 import time
 
+from openai import AuthenticationError
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -17,6 +18,17 @@ _init_started_at = 0.0
 _init_error_at = 0.0
 _INIT_MAX_SECONDS = int(os.getenv("RAG_INIT_MAX_SECONDS", "900"))
 _INIT_RETRY_SECONDS = int(os.getenv("RAG_INIT_RETRY_SECONDS", "120"))
+
+
+def _normalizar_api_key(valor: str | None) -> str:
+    if not valor:
+        return ""
+
+    chave = valor.strip().strip('"').strip("'")
+    if chave.startswith("OPENAI_API_KEY="):
+        chave = chave.split("=", 1)[1].strip().strip('"').strip("'")
+
+    return chave
 
 
 def _inicializar() -> None:
@@ -53,7 +65,7 @@ def _inicializar() -> None:
         global _retriever, _cadeia, _init_state, _init_error, _init_started_at
         global _init_error_at
         try:
-            api_key = os.getenv("OPENAI_API_KEY")
+            api_key = _normalizar_api_key(os.getenv("OPENAI_API_KEY"))
             if not api_key:
                 raise RuntimeError(
                     "Variavel de ambiente OPENAI_API_KEY nao configurada. "
@@ -91,6 +103,15 @@ def _inicializar() -> None:
                 _init_error = ""
                 _init_started_at = 0.0
                 _init_error_at = 0.0
+        except AuthenticationError:
+            with _init_lock:
+                _init_state = "error"
+                _init_error = (
+                    "OPENAI_API_KEY invalida ou sem permissao para este projeto. "
+                    "Atualize a chave no Render e reinicie o servico."
+                )
+                _init_error_at = time.monotonic()
+                _init_started_at = 0.0
         except Exception as exc:
             with _init_lock:
                 _init_state = "error"

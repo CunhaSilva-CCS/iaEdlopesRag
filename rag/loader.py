@@ -29,6 +29,19 @@ logging.getLogger("pypdf").setLevel(logging.ERROR)
 _LOGGER = logging.getLogger(__name__)
 
 
+def _normalizar_api_key(valor: str | None) -> str:
+    if not valor:
+        return ""
+
+    chave = valor.strip().strip('"').strip("'")
+
+    # Permite valor colado por engano como "OPENAI_API_KEY=sk-...".
+    if chave.startswith("OPENAI_API_KEY="):
+        chave = chave.split("=", 1)[1].strip().strip('"').strip("'")
+
+    return chave
+
+
 def _carregar_paginas_pdf(arquivo: Path):
     # Primeiro tenta PyPDF (mais leve). Se vier vazio, tenta fallback com PyMuPDF.
     stderr_buffer = io.StringIO()
@@ -61,7 +74,7 @@ def _carregar_paginas_pdf(arquivo: Path):
 
 
 def _obter_api_key_openai() -> SecretStr:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = _normalizar_api_key(os.getenv("OPENAI_API_KEY"))
     if not api_key:
         raise RuntimeError(
             "Variavel de ambiente OPENAI_API_KEY nao configurada. "
