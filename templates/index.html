@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAGEd · Edlopes Transportes</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="app">
+
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🚢</span>
+        <div>
+          <h1>Edlopes Transportes</h1>
+        <p>Inteligência documental para SGI</p>
+        </div>
+      </div>
+      <button class="btn-clear" id="btn-clear" title="Limpar conversa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          <path d="M10 11v6M14 11v6"></path>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+        </svg>
+        <span>Limpar</span>
+      </button>
+    </header>
+
+    <main class="chat-container" id="chat-container">
+      <div class="messages" id="messages">
+        <div class="message ai">
+          <div class="avatar">ED</div>
+          <div class="bubble">
+            <p>Bem-vindo(a). Sou o assistente <strong>RAG Edlopes</strong> da <strong>Edlopes Transportes</strong>.</p>
+            <p>Estou preparado para apoiar consultas sobre procedimentos operacionais, requisitos de SSMA, gestão estratégica, desenvolvimento de pessoal e resposta a emergências, com base nos documentos internos vigentes.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="suggestions" id="suggestions">
+        <p class="suggestions-label">Sugestões de perguntas</p>
+        <div class="chips">
+          <button class="chip">Quais requisitos do PRO 03 devem ser observados antes da operação?</button>
+          <button class="chip">Quais diretrizes do PRO 04 se aplicam em cenário de emergência?</button>
+          <button class="chip">Quais controles de rota são exigidos na I.O. 11?</button>
+          <button class="chip">Quais responsabilidades estão previstas no PRO 01 para gestão estratégica?</button>
+        </div>
+        <p class="context-note">
+          Base documental: IO, PRO 01, PRO 02, PRO 03 e PRO 04.
+        </p>
+      </div>
+    </main>
+
+    <footer class="input-area">
+      <form class="input-form" id="chat-form">
+        <textarea
+          id="pergunta"
+          placeholder="Descreva sua dúvida operacional, normativa ou de segurança..."
+          rows="1"
+          autofocus
+        ></textarea>
+        <button type="submit" id="send-btn" title="Enviar (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+      <p class="hint">Respostas fundamentadas nos documentos internos indexados &nbsp;·&nbsp; Enter para enviar</p>
+    </footer>
+
+  </div>
+  <script src="/static/js/chat.js"></script>
+</body>
+</html>
